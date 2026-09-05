@@ -1,0 +1,35 @@
+﻿version: "3.8"
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: pad_ce_backend
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - API_V1_STR=/api/v1
+    restart: unless-stopped
+    networks:
+      - pad_ce_net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: pad_ce_frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    environment:
+      - VITE_API_URL=http://localhost:8000/api/v1
+    restart: unless-stopped
+    networks:
+      - pad_ce_net
+
+networks:
+  pad_ce_net:
+    driver: bridge

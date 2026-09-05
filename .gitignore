@@ -1,0 +1,51 @@
+﻿# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node & Frontend
+node_modules/
+dist/
+dist-ssr/
+*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environments & IDEs
+.env
+.env.*
+!.env.example
+venv/
+env/
+ENV/
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Presentation generation scratch artifacts
+agri_images/
+agri_preview/
+slides_preview/
+submission_preview/
+build_winning_sih_deck.py
+generate_agri_style_pad_ce.py
+fix_flowchart.py
+fix_mockup.py
+generate_mockups.py
+take_detailed_shots.mjs
+take_screenshot.mjs
+test_verbatim.py
+make_backend.py
+build_backend_files.py
+*.png
+!docs/*.png
