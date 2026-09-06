@@ -15,6 +15,8 @@ def test_iterative_projection_engine_direct():
         current_berth_delay_hr=12.0,
         stockyard_buffer_days=35.0
     )
+    # Warm-up run for JIT / initial array allocations
+    _ = iterative_projection_engine(payload)
     res = iterative_projection_engine(payload)
 
     assert "optimal_speeds_knots" in res
