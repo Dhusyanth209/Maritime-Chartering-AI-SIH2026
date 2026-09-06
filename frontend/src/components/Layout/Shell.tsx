@@ -1,11 +1,9 @@
-﻿import React from "react";
+import React, { useState } from "react";
 import { HeaderTopBar } from "./HeaderTopBar";
-import { InventoryBufferGauge } from "../stockyard/InventoryBufferGauge";
-import { DistanceTimeCanvas } from "../cockpit/DistanceTimeCanvas";
-import { MaritimeRadarMap } from "../cockpit/MaritimeRadarMap";
-import { SpeedControlSlider } from "../cockpit/SpeedControlSlider";
-import { FeatureAttributionCard } from "../xai/FeatureAttributionCard";
-import { CounterfactualSimulator } from "../xai/CounterfactualSimulator";
+import { SpatialTrajectoryCockpit } from "../cockpit/SpatialTrajectoryCockpit";
+import { PrimaryDispatchDirective } from "../executive/PrimaryDispatchDirective";
+import { BlastFurnaceHealthCard } from "../executive/BlastFurnaceHealthCard";
+import { TabbedWorkspace } from "../secondary/TabbedWorkspace";
 import { AuditDossierModal } from "../audit/AuditDossierModal";
 import { useFleetOptimizer } from "../../hooks/useFleetOptimizer";
 
@@ -14,6 +12,7 @@ export const Shell: React.FC = () => {
     selectedPort,
     setSelectedPort,
     bunkerPrice,
+    stockyardStock,
     berthDelayHours,
     operatorSpeed,
     viewMode,
@@ -34,12 +33,14 @@ export const Shell: React.FC = () => {
     exportAuditDossier
   } = useFleetOptimizer();
 
+  const [selectedVesselId, setSelectedVesselId] = useState<string>("vessel_1");
+
   if (loading && !optimizationResult) {
     return (
       <div className="min-h-screen bg-[#0A0E17] flex flex-col items-center justify-center text-white">
         <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
         <p className="mt-4 font-mono font-bold text-blue-400 text-sm tracking-wider">
-          COMMAND SENTINEL OS: INITIALIZING IP SOLVER ENGINE...
+          COMMAND SENTINEL OS: INITIALIZING DETERMINISTIC IP ENGINE...
         </p>
         <span className="text-xs text-slate-500 mt-1">
           Sampling 500 Monte-Carlo Scenarios across Paradip, Vizag & Dhamra Roadsteads
@@ -48,131 +49,103 @@ export const Shell: React.FC = () => {
     );
   }
 
-  const primaryVessel = optimizationResult?.vessels[0];
+  // Active flagship selection
+  const vessels = optimizationResult?.vessels || [];
+  const activeVessel = vessels.find((v) => v.id === selectedVesselId) || vessels[0];
 
   return (
-    <div className="min-h-screen bg-[#0A0E17] text-slate-100 flex flex-col font-sans">
-      {/* 1. Top Operational Bar */}
+    <div className="min-h-screen bg-[#0A0E17] text-slate-100 flex flex-col font-sans selection:bg-blue-600 selection:text-white">
+      {/* 1. Executive Top Bar (5-Second Rule: Net Savings, Demurrage Avoided, Carbon Abated) */}
       <HeaderTopBar
         aggregates={optimizationResult?.fleet_aggregates}
         solverMeta={optimizationResult?.solver_metadata}
         selectedPort={selectedPort}
         onPortChange={setSelectedPort}
-        viewMode={viewMode}
-        onViewModeChange={setViewMode}
+        onExportAudit={exportAuditDossier}
         optimizing={optimizing}
       />
 
-      {/* Main Workspace Layout Grid */}
-      <main className="max-w-[1720px] mx-auto w-full px-6 py-6 flex-1 flex flex-col gap-6">
+      {/* Main Primary Viewport Workspace */}
+      <main className="max-w-[1780px] mx-auto w-full px-6 py-6 flex-1 flex flex-col gap-6">
         {error && (
-          <div className="p-3 bg-rose-950/80 border border-rose-500/50 rounded-xl text-xs text-rose-200">
-            ⚠️ {error}
+          <div className="p-3.5 bg-rose-950/80 border border-rose-500/50 rounded-xl text-xs text-rose-200 flex items-center justify-between">
+            <span>⚠️ Optimization Engine Notice: {error}</span>
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* 2. Left Panel: Industrial Stockyard Horizon (3 cols) */}
-          <div className="lg:col-span-3 h-full">
-            {optimizationResult && (
-              <InventoryBufferGauge
-                stockyard={optimizationResult.stockyard}
-                onStockChange={handleStockyardChange}
-              />
-            )}
-          </div>
-
-          {/* 3. Center Stage: Interactive Trajectory Cockpit (6 cols) */}
-          <div className="lg:col-span-6 panel-sentinel p-5 flex flex-col justify-between shadow-lg">
-            <div>
-              {/* Dual-View Toggle Cockpit */}
-              {viewMode === "canvas" ? (
-                <DistanceTimeCanvas
-                  vessel={primaryVessel}
-                  destinationPortName={optimizationResult?.destination_port.toUpperCase() || "PARADIP"}
-                />
-              ) : (
-                <MaritimeRadarMap
-                  telemetry={telemetry || undefined}
-                  selectedPort={selectedPort}
-                />
-              )}
-
-              {/* Fleet Active Vessels Table */}
-              <div className="mt-4 pt-3 border-t border-[#1E293B]">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
-                  Active Capesize Fleet Itinerary & JIT Speed Optimization
-                </h3>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead>
-                      <tr className="text-[10px] text-slate-500 uppercase border-b border-[#1E293B] font-mono">
-                        <th className="pb-1.5">Vessel Name</th>
-                        <th className="pb-1.5">Origin ➔ Port</th>
-                        <th className="pb-1.5">Cargo</th>
-                        <th className="pb-1.5">HUAW Speed</th>
-                        <th className="pb-1.5 text-emerald-400">JIT Speed</th>
-                        <th className="pb-1.5 text-right">Fuel Saved</th>
-                        <th className="pb-1.5 text-right">Demurrage Saved</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#1E293B]/60 font-mono">
-                      {optimizationResult?.vessels.map((v) => (
-                        <tr key={v.id} className="hover:bg-[#161F30]/40 transition-colors">
-                          <td className="py-2 font-bold text-white font-sans">{v.name}</td>
-                          <td className="py-2 text-slate-400 font-sans">{v.distance_nm} NM</td>
-                          <td className="py-2 text-slate-300">{(v.cargo_mt / 1000).toFixed(0)}k MT</td>
-                          <td className="py-2 text-rose-400">{v.baseline_speed_knots} kn</td>
-                          <td className="py-2 text-emerald-400 font-bold">{v.optimal_speed_clamped} kn</td>
-                          <td className="py-2 text-right text-emerald-400 font-semibold">{v.fuel_saved_mt} MT</td>
-                          <td className="py-2 text-right text-white font-bold">₹{v.demurrage_avoided_lakhs_inr}L</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-
-            {/* Interactive Speed Override Slider */}
-            <SpeedControlSlider
-              vessel={primaryVessel}
-              operatorSpeed={operatorSpeed}
-              onSpeedChange={handleSpeedChange}
-              onReset={handleResetSpeed}
+        {/* ========================================================================= */}
+        {/* 2. Primary Workspace (Strict 70% / 30% Split Layout)                     */}
+        {/* ========================================================================= */}
+        <div className="grid grid-cols-1 lg:grid-cols-10 gap-6 items-stretch">
+          {/* Left Stage (70% Width): Spatial & Trajectory Canvas */}
+          <div className="lg:col-span-7 flex flex-col">
+            <SpatialTrajectoryCockpit
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+              vessel={activeVessel}
+              destinationPortName={optimizationResult?.destination_port.toUpperCase() || "PARADIP"}
+              telemetry={telemetry || undefined}
+              selectedPort={selectedPort}
             />
           </div>
 
-          {/* 4. Right Panel: Explainable AI (XAI) & Audit Sentinel (3 cols) */}
-          <div className="lg:col-span-3 space-y-4">
-            {optimizationResult && (
-              <FeatureAttributionCard
-                attributions={optimizationResult.feature_attributions}
-                goncalves={optimizationResult.goncalves_macro_trigger}
-              />
-            )}
+          {/* Right Stage (30% Width): Executive Action & Plant Safety */}
+          <div className="lg:col-span-3 flex flex-col gap-6">
+            {/* Card A: Primary Dispatch Directive (Highest Visual Hierarchy) */}
+            <PrimaryDispatchDirective
+              vessel={activeVessel}
+              aggregates={optimizationResult?.fleet_aggregates}
+              operatorSpeed={operatorSpeed}
+            />
 
-            <CounterfactualSimulator
-              berthDelayHours={berthDelayHours}
-              bunkerPrice={bunkerPrice}
-              onDelayChange={handleDelaySimulation}
-              onBunkerChange={handleBunkerChange}
-              onExportAudit={exportAuditDossier}
+            {/* Card B: Blast Furnace Raw Material Health */}
+            <BlastFurnaceHealthCard
+              stockyard={optimizationResult?.stockyard}
             />
           </div>
         </div>
+
+        {/* ========================================================================= */}
+        {/* 3. Collapsible Bottom Drawer / Tabbed Workspace (Details on Demand)       */}
+        {/* ========================================================================= */}
+        <TabbedWorkspace
+          vessels={vessels}
+          selectedVesselId={selectedVesselId}
+          onSelectVessel={setSelectedVesselId}
+          berthDelayHours={berthDelayHours}
+          bunkerPrice={bunkerPrice}
+          stockyardStock={stockyardStock}
+          operatorSpeed={operatorSpeed}
+          onDelayChange={handleDelaySimulation}
+          onBunkerChange={handleBunkerChange}
+          onStockyardChange={handleStockyardChange}
+          onSpeedChange={handleSpeedChange}
+          onResetSpeed={handleResetSpeed}
+          attributions={optimizationResult?.feature_attributions || []}
+          goncalves={
+            optimizationResult?.goncalves_macro_trigger || {
+              optimal_stopping_s_star: 19.24,
+              current_spot_rate: 18.5,
+              action: "COMMIT_NOW",
+              decision_rationale: "Spot rate is below trigger threshold",
+              tail_risk_bound_r_inf: 9000,
+              gamma_2: 1.45
+            }
+          }
+          stockyard={optimizationResult?.stockyard}
+        />
       </main>
 
-      {/* 5. CVC / CAG Audit Dossier Modal */}
+      {/* 4. CVC / CAG Sovereign Audit Dossier Modal */}
       <AuditDossierModal
         isOpen={isAuditModalOpen}
         onClose={() => setIsAuditModalOpen(false)}
         dossier={auditDossier}
       />
 
-      {/* Footer */}
-      <footer className="w-full bg-[#0A0E17] border-t border-[#1E293B] py-3 px-6 text-center text-xs text-slate-500 font-mono">
-        COMMAND SENTINEL OS v3.0 • CVC Circular 02/05/2022 & GFR 2017 Rule 144 Compliant • Ministry of Steel (SAIL / RINL)
+      {/* Sovereign Statutory Footer */}
+      <footer className="w-full bg-[#0A0E17] border-t border-[#1E293B] py-3.5 px-6 text-center text-xs text-slate-500 font-mono">
+        COMMAND SENTINEL OS v3.0 • CVC Circular 02/05/2022 & GFR 2017 Rule 144 Compliant • Ministry of Steel (SAIL / RINL) • Sovereign Mathematical Verification
       </footer>
     </div>
   );
