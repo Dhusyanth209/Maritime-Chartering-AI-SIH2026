@@ -21,6 +21,25 @@ export const SpatialTrajectoryCockpit: React.FC<SpatialTrajectoryCockpitProps> =
   telemetry,
   selectedPort
 }) => {
+  // Map vessel and port telemetry to VesselItinerary and PortInfrastructure
+  const itinerary: VesselItinerary = {
+    id: vessel?.id || "vessel_1",
+    name: vessel?.name || "MV Bharat Pride",
+    distanceNm: vessel?.distance_nm || 5600,
+    baseSpeedKn: vessel?.baseline_speed_knots || 14.5,
+    optimalSpeedKn: vessel?.optimal_speed_clamped || 10.7,
+    etaHours: vessel?.transit_hours_optimal || 480,
+    cargoMt: vessel?.cargo_mt || 160000
+  };
+
+  const portInfra: PortInfrastructure = {
+    portKey: selectedPort,
+    name: destinationPortName,
+    berths: telemetry?.ports[selectedPort]?.berths || 2,
+    avgDelayHours: telemetry?.ports[selectedPort]?.avg_anchorage_wait_hours || 38,
+    roadsteadCongestion: telemetry?.ports[selectedPort]?.congestion_index_pct || 72
+  };
+
   return (
     <div className="bg-[#111827] border border-[#1E293B] rounded-2xl p-5 shadow-xl flex flex-col justify-between min-h-[640px]">
       {/* Top Toolbar */}
@@ -72,8 +91,8 @@ export const SpatialTrajectoryCockpit: React.FC<SpatialTrajectoryCockpitProps> =
       <div className="my-3 flex-1 flex items-center justify-center min-h-[500px]">
         {viewMode === "canvas" ? (
           <DistanceTimeCanvas
-            vessel={vessel}
-            destinationPortName={destinationPortName}
+            vessel={itinerary}
+            port={portInfra}
           />
         ) : (
           <MaritimeRadarMap

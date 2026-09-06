@@ -136,3 +136,22 @@ export interface AuditDossierResponse {
     input_snapshot: any;
   };
 }
+
+export interface VesselItinerary {
+  id?: string;
+  name: string;
+  distanceNm: number;
+  baseSpeedKn: number;
+  optimalSpeedKn?: number;
+  etaHours: number;
+  cargoMt?: number;
+}
+
+export interface PortInfrastructure {
+  portKey?: string;
+  name: string;
+  berths?: number;
+  avgDelayHours?: number;
+  roadsteadCongestion?: number;
+}
+

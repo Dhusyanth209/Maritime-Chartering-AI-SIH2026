@@ -1,53 +1,62 @@
-import React, { useRef, useEffect } from "react";
-import { VesselOptimizationDetail } from "../../types/fleet";
+import React, { useRef, useEffect } from 'react';
+import { VesselItinerary, PortInfrastructure } from '../../types/fleet';
 
 interface DistanceTimeCanvasProps {
-  vessel?: VesselOptimizationDetail;
-  destinationPortName: string;
+  vessel: VesselItinerary;
+  port: PortInfrastructure;
 }
 
-export const DistanceTimeCanvas: React.FC<DistanceTimeCanvasProps> = ({
-  vessel,
-  destinationPortName
-}) => {
+export const DistanceTimeCanvas: React.FC<DistanceTimeCanvasProps> = ({ vessel, port }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
-    if (typeof window === "undefined" || !canvasRef.current || !vessel) return;
-
     const canvas = canvasRef.current;
-    const ctx = canvas.getContext("2d");
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const width = canvas.width;
-    const height = canvas.height;
-    const padding = { top: 45, right: 70, bottom: 55, left: 80 };
+    // Retina DPI Scaling
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    const width = rect.width || 800;
+    const height = rect.height || 480;
 
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+    ctx.scale(dpr, dpr);
+
+    // Background
+    ctx.fillStyle = '#0B0F19';
+    ctx.fillRect(0, 0, width, height);
+
+    // Grid Metrics
+    const padding = { top: 40, right: 60, bottom: 50, left: 70 };
     const plotWidth = width - padding.left - padding.right;
     const plotHeight = height - padding.top - padding.bottom;
 
-    // Clear canvas
-    ctx.clearRect(0, 0, width, height);
+    const maxDistance = 6000; // NM
+    const maxTime = 600;      // Hours
 
-    // Deep Obsidian / Dark Gunmetal canvas background
-    const bgGrad = ctx.createLinearGradient(0, 0, 0, height);
-    bgGrad.addColorStop(0, "#0B101B");
-    bgGrad.addColorStop(1, "#070A11");
-    ctx.fillStyle = bgGrad;
-    ctx.fillRect(0, 0, width, height);
+    const getX = (t: number) => padding.left + (t / maxTime) * plotWidth;
+    const getY = (d: number) => padding.top + (1 - d / maxDistance) * plotHeight;
 
-    const maxDistance = vessel.distance_nm;
-    const maxHours = Math.max(650, vessel.transit_hours_optimal + 120);
-
-    const getX = (hours: number) => padding.left + (hours / maxHours) * plotWidth;
-    const getY = (distNm: number) => padding.top + ((maxDistance - distNm) / maxDistance) * plotHeight;
-
-    // 1. Grid Lines
-    ctx.strokeStyle = "#1E293B";
+    // Draw Gridlines
+    ctx.strokeStyle = '#1E293B';
     ctx.lineWidth = 1;
-    ctx.setLineDash([4, 4]);
 
-    // Horizontal grid (Distance in NM)
+    for (let t = 0; t <= maxTime; t += 100) {
+      const x = getX(t);
+      ctx.beginPath();
+      ctx.moveTo(x, padding.top);
+      ctx.lineTo(x, height - padding.bottom);
+      ctx.stroke();
+
+      ctx.fillStyle = '#64748B';
+      ctx.font = '10px JetBrains Mono, monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(`${t}h`, x, height - padding.bottom + 16);
+    }
+
     for (let d = 0; d <= maxDistance; d += 1000) {
       const y = getY(d);
       ctx.beginPath();
@@ -55,127 +64,95 @@ export const DistanceTimeCanvas: React.FC<DistanceTimeCanvasProps> = ({
       ctx.lineTo(width - padding.right, y);
       ctx.stroke();
 
-      ctx.fillStyle = "#64748B";
-      ctx.font = "11px ui-monospace, SFMono-Regular, monospace";
-      ctx.textAlign = "right";
-      ctx.fillText(`${d.toLocaleString()} NM`, padding.left - 12, y + 4);
+      ctx.fillStyle = '#64748B';
+      ctx.font = '10px JetBrains Mono, monospace';
+      ctx.textAlign = 'right';
+      ctx.fillText(`${d}`, padding.left - 10, y + 3);
     }
 
-    // Vertical grid (Time in Hours)
-    for (let t = 0; t <= maxHours; t += 100) {
-      const x = getX(t);
-      ctx.beginPath();
-      ctx.moveTo(x, padding.top);
-      ctx.lineTo(x, height - padding.bottom);
-      ctx.stroke();
-
-      ctx.fillStyle = "#64748B";
-      ctx.font = "11px ui-monospace, SFMono-Regular, monospace";
-      ctx.textAlign = "center";
-      ctx.fillText(`${t}h`, x, height - padding.bottom + 20);
-    }
+    // Berth Idle Delay Window (Red Hazard Box)
+    const berthAvailTime = vessel?.etaHours || 480;
+    const baseSpeed = vessel?.baseSpeedKn || 14.5;
+    const distanceNm = vessel?.distanceNm || 5600;
+    const huawArrivalTime = distanceNm / baseSpeed;
+    
+    ctx.fillStyle = 'rgba(244, 63, 94, 0.12)';
+    ctx.fillRect(
+      getX(huawArrivalTime),
+      getY(150),
+      getX(berthAvailTime) - getX(huawArrivalTime),
+      getY(0) - getY(150)
+    );
+    ctx.strokeStyle = '#F43F5E';
+    ctx.setLineDash([4, 4]);
+    ctx.strokeRect(
+      getX(huawArrivalTime),
+      getY(150),
+      getX(berthAvailTime) - getX(huawArrivalTime),
+      getY(0) - getY(150)
+    );
     ctx.setLineDash([]);
 
-    // 2. Open Berth Allocation Slot (Emerald Shaded Target Window at distance = 0)
-    const berthOpenHour = vessel.transit_hours_optimal;
-    const berthCloseHour = berthOpenHour + 52.8; // Standard turnaround window
-    const xBerthStart = getX(berthOpenHour);
-    const xBerthEnd = getX(berthCloseHour);
+    ctx.fillStyle = '#F43F5E';
+    ctx.font = '11px Inter, sans-serif';
+    ctx.fillText('Roadstead Anchorage Delay Trap (Demurrage Loss)', getX(huawArrivalTime) + 10, getY(60));
 
-    ctx.fillStyle = "rgba(16, 185, 129, 0.12)";
-    ctx.fillRect(xBerthStart, padding.top, xBerthEnd - xBerthStart, plotHeight);
-    ctx.strokeStyle = "#10B981";
-    ctx.lineWidth = 1.5;
-    ctx.strokeRect(xBerthStart, padding.top, xBerthEnd - xBerthStart, plotHeight);
-
-    ctx.fillStyle = "#10B981";
-    ctx.font = "bold 11px sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText("Synchronized Berth Slot (0h Queue)", (xBerthStart + xBerthEnd) / 2, padding.top - 14);
-
-    // 3. Trajectory A: Legacy "Hurry-then-Wait" (HUAW)
-    // Fast transit at 14.5 knots, arriving early at anchorage, then waiting
-    const tBase = vessel.transit_hours_baseline;
+    // 1. Legacy HUAW Slope (Red Line)
+    ctx.strokeStyle = '#EF4444';
+    ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(getX(0), getY(maxDistance));
-    ctx.lineTo(getX(tBase), getY(0));
-    // Flat line at distance = 0 representing outer anchorage delay
-    ctx.lineTo(getX(berthOpenHour), getY(0));
-    ctx.strokeStyle = "#F43F5E";
+    ctx.moveTo(getX(0), getY(distanceNm));
+    ctx.lineTo(getX(huawArrivalTime), getY(0));
+    ctx.stroke();
+
+    // 2. Optimal Virtual Arrival JIT Slope (Emerald Line)
+    ctx.strokeStyle = '#10B981';
     ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(getX(0), getY(distanceNm));
+    ctx.lineTo(getX(berthAvailTime), getY(0));
     ctx.stroke();
 
-    // HUAW Anchorage Delay Box
-    const waitWidth = getX(berthOpenHour) - getX(tBase);
-    ctx.fillStyle = "rgba(244, 63, 94, 0.16)";
-    ctx.fillRect(getX(tBase), getY(0) - 28, waitWidth, 28);
-    ctx.strokeStyle = "rgba(244, 63, 94, 0.5)";
-    ctx.lineWidth = 1;
-    ctx.strokeRect(getX(tBase), getY(0) - 28, waitWidth, 28);
-
-    ctx.fillStyle = "#F43F5E";
-    ctx.font = "bold 11px sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText(
-      `Outer Anchorage Idling (${(berthOpenHour - tBase).toFixed(0)}h Demurrage Trap)`,
-      (getX(tBase) + getX(berthOpenHour)) / 2,
-      getY(0) - 10
-    );
-
-    // 4. Trajectory B: Command Sentinel (Virtual Arrival JIT)
-    // Smooth, slow-steaming slope meeting berth opening slot exactly
-    const tOpt = vessel.transit_hours_optimal;
+    // End-point Markers
+    ctx.fillStyle = '#10B981';
     ctx.beginPath();
-    ctx.moveTo(getX(0), getY(maxDistance));
-    ctx.lineTo(getX(tOpt), getY(0));
-    ctx.strokeStyle = "#10B981";
-    ctx.lineWidth = 3.5;
-    ctx.stroke();
-
-    // End-point circle markers
-    ctx.fillStyle = "#F43F5E";
-    ctx.beginPath();
-    ctx.arc(getX(tBase), getY(0), 6, 0, Math.PI * 2);
+    ctx.arc(getX(berthAvailTime), getY(0), 5, 0, 2 * Math.PI);
     ctx.fill();
 
-    ctx.fillStyle = "#10B981";
-    ctx.beginPath();
-    ctx.arc(getX(tOpt), getY(0), 7, 0, Math.PI * 2);
-    ctx.fill();
+    // Axis Labels
+    ctx.fillStyle = '#94A3B8';
+    ctx.font = '11px Inter, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('Elapsed Voyage Time (Hours)', padding.left + plotWidth / 2, height - 12);
 
-    // Origin Port Marker (Top Left)
-    ctx.fillStyle = "#38BDF8";
-    ctx.beginPath();
-    ctx.arc(getX(0), getY(maxDistance), 6, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.font = "bold 11px sans-serif";
-    ctx.textAlign = "left";
-    ctx.fillText("Departure: Gladstone, QLD", getX(0) + 12, getY(maxDistance) + 4);
+    ctx.save();
+    ctx.translate(20, padding.top + plotHeight / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.fillText('Distance to Destination (Nautical Miles)', 0, 0);
+    ctx.restore();
 
-    // Destination Port Marker (Bottom)
-    ctx.fillStyle = "#10B981";
-    ctx.font = "bold 11px sans-serif";
-    ctx.textAlign = "left";
-    ctx.fillText(`Arrival: ${destinationPortName} Berth`, getX(tOpt) + 12, getY(0) + 4);
+  }, [vessel, port]);
 
-    // Coordinate Axis Titles
-    ctx.fillStyle = "#94A3B8";
-    ctx.font = "bold 11px sans-serif";
-    ctx.textAlign = "left";
-    ctx.fillText("Voyage Distance to Port (Nautical Miles)", 15, padding.top - 14);
-    ctx.textAlign = "center";
-    ctx.fillText("Elapsed Voyage Duration (Hours from Departure) ➔", width / 2, height - 16);
-
-  }, [vessel, destinationPortName]);
+  const vesselName = vessel?.name || "MV Bharat Pride";
+  const optimalSpeed = vessel?.optimalSpeedKn ? `${vessel.optimalSpeedKn.toFixed(1)} kn` : "10.7 kn";
+  const baseSpeed = vessel?.baseSpeedKn ? `${vessel.baseSpeedKn.toFixed(1)} kn` : "14.5 kn";
 
   return (
-    <div className="w-full h-full flex flex-col items-center justify-center">
-      <canvas
-        ref={canvasRef}
-        width={960}
-        height={500}
-        className="w-full h-auto max-h-[510px] rounded-xl border border-[#1E293B] shadow-inner"
-      />
+    <div className="w-full h-full flex flex-col justify-between">
+      <div className="flex items-center justify-between px-4 py-2 border-b border-[#1E293B]">
+        <span className="text-xs font-mono text-slate-300">
+          Trajectory Slope Comparison: <strong className="text-white">{vesselName}</strong>
+        </span>
+        <div className="flex items-center gap-4 text-[11px] font-mono">
+          <span className="flex items-center gap-1.5 text-red-400">
+            <span className="w-3 h-0.5 bg-red-500 inline-block" /> Legacy HUAW ({baseSpeed})
+          </span>
+          <span className="flex items-center gap-1.5 text-emerald-400">
+            <span className="w-3 h-0.5 bg-emerald-500 inline-block" /> Virtual Arrival ({optimalSpeed})
+          </span>
+        </div>
+      </div>
+      <canvas ref={canvasRef} className="w-full flex-grow" style={{ minHeight: '480px' }} />
     </div>
   );
 };
