@@ -1,12 +1,33 @@
-﻿import pytest
+import pytest
 import numpy as np
 from fastapi.testclient import TestClient
-from app.services.iterative_projection import IterativeProjectionSolver
+from app.services.iterative_projection import IterativeProjectionSolver, FleetOptimizationInput, iterative_projection_engine
 from app.services.goncalves_solver import GoncalvesHJBSolver
 from app.services.data_generator import FleetDataGenerator
 from app.main import app
 
 client = TestClient(app)
+
+def test_iterative_projection_engine_direct():
+    payload = FleetOptimizationInput(
+        distances_nm=[5600.0, 5450.0, 2900.0],
+        scheduled_berth_times_hr=[52.8, 52.8, 48.0],
+        current_berth_delay_hr=12.0,
+        stockyard_buffer_days=35.0
+    )
+    res = iterative_projection_engine(payload)
+
+    assert "optimal_speeds_knots" in res
+    assert len(res["optimal_speeds_knots"]) == 3
+    assert res["total_fuel_saved_mt"] > 0
+    assert res["total_demurrage_avoided_usd"] > 0
+    assert res["solver_latency_ms"] < 15.0
+
+    # Test direct API endpoint
+    endpoint_res = client.post("/api/v1/iterative-projection", json=payload.model_dump())
+    assert endpoint_res.status_code == 200
+    data = endpoint_res.json()
+    assert "optimal_speeds_knots" in data
 
 def test_ip_solver_convergence_and_tie_breaking():
     solver = IterativeProjectionSolver(n_scenarios=500, max_iterations=50)

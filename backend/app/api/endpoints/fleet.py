@@ -1,7 +1,7 @@
-﻿import numpy as np
+import numpy as np
 from fastapi import APIRouter
 from app.models.schemas import FleetInput, OptimizationResult, VesselOptimizationDetail, FeatureAttribution, PortTelemetryResponse
-from app.services.iterative_projection import IterativeProjectionSolver
+from app.services.iterative_projection import IterativeProjectionSolver, FleetOptimizationInput, iterative_projection_engine
 from app.services.goncalves_solver import GoncalvesHJBSolver
 from app.services.data_generator import FleetDataGenerator
 from app.services.ais_service import AISPortTelemetryService
@@ -12,6 +12,14 @@ router = APIRouter()
 ip_solver = IterativeProjectionSolver()
 hjb_solver = GoncalvesHJBSolver()
 ais_service = AISPortTelemetryService()
+
+@router.post("/iterative-projection")
+def run_iterative_projection(payload: FleetOptimizationInput):
+    """
+    Direct endpoint executing the pure Lin et al. (SSRN-5087612)
+    Iterative Projection engine on FleetOptimizationInput.
+    """
+    return iterative_projection_engine(payload)
 
 @router.post("/optimize-fleet", response_model=OptimizationResult)
 def optimize_fleet(payload: FleetInput):
