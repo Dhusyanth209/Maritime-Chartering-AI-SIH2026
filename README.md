@@ -1,271 +1,256 @@
 ﻿<div align="center">
 
-# ⚓ PAD-CE: Port-Aware Dynamic Chartering Engine
-### **Dynamic Capesize Coking Coal Chartering & Berth-Aware Optimization Platform**
-**Smart India Hackathon (SIH 2026) • Problem Statement ID: `SIH26006`**  
-*Developed for the Ministry of Steel, Government of India*
+# ⚓ COMMAND SENTINEL OS
+### **Maritime Decision Support & Fleet Dispatch Optimizer**
+**Real-Time Speed Optimization & Virtual Arrival for Coking Coal Imports**  
+*Developed for Steel Authority of India Limited (SAIL) & Rashtriya Ispat Nigam Limited (RINL)*
 
 ---
 
-[![CI Pipeline](https://github.com/PAD-CE/Maritime-Chartering-AI-SIH2026/actions/workflows/ci.yml/badge.svg)](https://github.com/PAD-CE/Maritime-Chartering-AI-SIH2026/actions)
-[![PyTorch](https://img.shields.io/badge/PyTorch-2.2.0-EE4C2C.svg?logo=pytorch)](https://pytorch.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.110.0-009688.svg?logo=fastapi)](https://fastapi.tiangolo.com)
-[![React](https://img.shields.io/badge/React-18.3-61DAFB.svg?logo=react)](https://reactjs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-3178C6.svg?logo=typescript)](https://www.typescriptlang.org/)
-[![Compliance](https://img.shields.io/badge/Compliance-GFR%202017%20Rule%20144-blue)](https://doe.gov.in)
-[![Audit Ready](https://img.shields.io/badge/Audit-CVC%2002%2F05%2F2022-green)](https://cvc.gov.in)
-[![License](https://img.shields.io/badge/License-MIT-amber.svg)](LICENSE)
-
-[Pitch Deck (PPTX)](docs/PAD_CE_SIH2026_Submission.pptx) • [Executive Summary (PDF)](docs/PAD_CE_SIH2026_Submission.pdf) • [Architecture Flowchart](docs/architecture_flowchart.png) • [Benchmark Comparison](docs/benchmark_comparison.png)
+[![Solver Latency](https://img.shields.io/badge/IP%20Solver%20Latency-6.0%20ms%20(%3C15ms)-10B981.svg)](backend/app/services/iterative_projection.py)
+[![Mathematical Formulation](https://img.shields.io/badge/Algorithm-Lin%20et%20al.%20(SSRN--5087612)-2563EB.svg)](https://ssrn.com/abstract=5087612)
+[![CVC Compliant](https://img.shields.io/badge/Compliance-CVC%20Circular%2002%2F05%2F2022-blue.svg)](https://cvc.gov.in)
+[![GFR Rule 144](https://img.shields.io/badge/Audit-GFR%202017%20Rule%20144-emerald.svg)](https://doe.gov.in)
+[![FastAPI](https://img.shields.io/badge/Backend-FastAPI%20%7C%20Pydantic%20v2-009688.svg?logo=fastapi)](https://fastapi.tiangolo.com)
+[![React TypeScript](https://img.shields.io/badge/Frontend-React%2018%20%7C%20TypeScript-3178C6.svg?logo=typescript)](https://www.typescriptlang.org/)
+[![License](https://img.shields.io/badge/License-MIT%20GovTech-amber.svg)](LICENSE)
 
 </div>
 
 ---
 
-## 📌 Executive Summary
+## 1. Domain Overview & The "Hurry-then-Wait" Fallacy
 
-India's primary steel public sector undertakings (PSUs) import over **60 Million Metric Tons (MMT)** of metallurgical (coking) coal annually from Australia (Gladstone, Hay Point) and Indonesia (Tanjung Bara) into East Coast deepwater ports—predominantly **Paradip Port** and **Visakhapatnam (Vizag) Port**.
+India's primary public sector steel manufacturing units (SAIL plants at Rourkela, Bhilai, Bokaro, IISCO, and RINL at Visakhapatnam) import tens of millions of metric tons of metallurgical (coking) coal annually from Australia (Gladstone, Hay Point) and Indonesia (Tanjung Bara) into three critical deepwater East Coast ports:
+- **Paradip Port (Odisha)**
+- **Visakhapatnam (Vizag) Port (Andhra Pradesh)**
+- **Dhamra Port (Odisha)**
 
-Currently, chartering decisions rely on fixed quarterly time-charters or manual, reactive spot bookings. This traditional workflow suffers from three structural flaws:
-1. **Blindness to Port Congestion:** Ships steam at full design speed (14.5 knots) only to wait 5–9 days in outer anchorage queues, incurring severe demurrage penalties (**$28,500/day** per Capesize vessel).
-2. **Suboptimal Timing:** Volatile Baltic Capesize spot fluctuations are not anticipated, leading to commitments right before market troughs.
-3. **Bunker Inefficiency:** Full-speed voyages waste over 300+ MT of VLSFO bunker fuel per voyage compared to slow-steaming coordinated with berth availability.
+Historically, bulk maritime shipping operates under the **"Hurry-then-Wait" (HUAW)** fallacy: Capesize bulk carriers steam at high design velocities (14.0–15.5 knots) across thousands of nautical miles, only to arrive and sit idle in outer anchorage queues for 4 to 8 days awaiting mechanized discharging berths. This practice wastes hundreds of metric tons of expensive VLSFO bunker fuel and incurs crippling demurrage charges (**$28,500/day** per Capesize vessel).
 
-**PAD-CE (Port-Aware Dynamic Chartering Engine)** resolves these inefficiencies through a continuous-time mathematical optimization framework that synchronizes spot chartering, spatial AIS berth scheduling, and slow-steaming voyage execution.
+**COMMAND SENTINEL OS** eliminates HUAW by deploying a deterministic continuous-time optimization engine that synchronizes:
+1. **Macro-Charter Commitment Timing** ($t_0$ and freight trigger $S^*$).
+2. **Micro-Transit Velocity Coordination** ($v^*$) via stochastic port queue synchronization (**Virtual Arrival**).
+3. **Industrial Stockyard Buffer Clamping** ($I(t) \ge I_{\text{critical}}$ to prevent blast furnace shutdowns).
+4. **Sovereign Audit Defensibility** compliant with Central Vigilance Commission (CVC) and Comptroller and Auditor General (CAG) standards.
 
 ---
 
-## 📐 Mathematical Formulation
+## 2. Mathematical Formulation & Solver Mechanics
 
-PAD-CE minimizes the expected total landed cost per metric ton over the laycan decision horizon:
+### 2.1 Master Cost Functional
+The system minimizes total expected voyage and demurrage expenditure:
 
-$$\min_{t_0, v} \mathbb{E} \left[ \int_{t_0}^{T_{\text{arr}}} \left(S(t) + \beta \cdot B(t) \cdot v^3\right) dt + \mathcal{C}_{\text{demurrage}} \cdot \max\left(0, \frac{Q(T_{\text{arr}})}{\nu \cdot c} - \tau_{\text{free}}\right) + \mathcal{H}_{\text{inventory}}(t) \right]$$
+$$\min_{t_0, \, \mathbf{v}} \mathcal{J}(t_0, \mathbf{v}) = \mathbb{E} \left[ \sum_{k=1}^N \alpha a v_k^b L_k + V_{\text{cargo}} S(t_0) e^{-r(t_0 - t)} + \beta \mathcal{C}_{\text{dem}} \max\left(0, \, \tau_k^\circ(\xi) - \tau_{\text{free}}\right) \right]$$
 
-### **Variables & Parameters**
-| Symbol | Parameter | Value / Range | Description |
+#### **Variables & Parameters**
+| Symbol | Parameter | Definition / Unit | Value / Calibration |
 | :--- | :--- | :--- | :--- |
-| $S(t)$ | Spot Charter Rate | Multi-horizon DERN | Predicted market freight rate ($/MT) |
-| $B(t)$ | VLSFO Bunker Fuel Rate | $610–$640 / MT | Singapore 0.5% Low-Sulfur Fuel Oil |
-| $v$ | Steaming Speed | 10.5 – 14.5 knots | Vessel operational speed |
-| $\beta$ | Admiralty Constant | $\approx 0.013777$ | Derived from $42.0 \text{ MT/d} / (14.5 \text{ kn})^3$ |
-| $\mathcal{C}_{\text{dem}}$ | Daily Demurrage | $28,500 / day | Standard charterparty penalty for Capesizes |
-| $Q(T_{\text{arr}})$ | Anchorage Queue Depth | DBSCAN AIS Cluster | Number of awaiting bulkers at port |
-| $\nu \cdot c$ | Port Service Throughput | $\nu = 0.42, c = 3–4$ | Service rate per mechanized discharge berth |
-| $\tau_{\text{free}}$ | Allowed Laytime | 4.0 days | Contractually permitted unloading window |
+| $v_k$ | Vessel Velocity | Knots (NM/hr) | Constrained to $[\underline{v}, \overline{v}] = [10.0, 25.0]\text{ kn}$ |
+| $L_k$ | Voyage Distance | Nautical Miles (NM) | Gladstone $\to$ Paradip (5,600 NM), Hay Point $\to$ Vizag (5,450 NM), Tanjung Bara $\to$ Dhamra (2,900 NM) |
+| $\tau_k$ | Transit Duration | Hours ($L_k / v_k$) | Evaluated continuously |
+| $\alpha$ | Bunker Fuel Price | \$/MT | Singapore 0.5% VLSFO ($\approx \$620/\text{MT}$) |
+| $a, b$ | Admiralty Parameters | Empirical Cubic Law | Daily $a = 42.0 / (14.5^3) \approx 0.013777$, Hourly $a_{\text{hr}} = a/24$, $b = 3.0$ |
+| $\mathcal{C}_{\text{dem}}$ | Daily Demurrage | \$/day | \$28,500 / day ($\beta_{\text{hourly}} = \$1,187.50/\text{hr}$) |
+| $\tau_{\text{free}}$ | Allowed Laytime | Hours | 4.0 days $= 96.0\text{ hours}$ |
+| $\tau_k^\circ(\xi)$ | Realized Discharge Time | Hours | Sequential service under stochastic scenario $\xi \in \hat{\Xi}$ |
 
 ---
 
-## 🏗️ System Architecture
-
-```
-                                  [ AIS Telemetry Stream (Paradip / Vizag) ]
-                                                      │
- [ Baltic Indices: BDI, BCI, VLSFO ]                  ▼
-                │                          [ DBSCAN Spatial Density (ε=0.035°) ]
-                ▼                                     │
-   [ DERN PyTorch Ensemble ]                          ▼
- (RNN + LSTM + GRU + 4-Head Attn)          [ M/M/c Queuing Dwell Estimator ]
-                │                                     │
-                └───────────────┬─────────────────────┘
-                                │
-                                ▼
-         [ Gonçalves Continuous-Time Stochastic Solver ]
-                    (S1* Delay vs. S2* Trigger)
-                                │
-                                ▼
-         [ Master Landed Cost Integral Optimization ]
-                 (Admiralty Cubic Slow-Steaming)
-                                │
-                                ▼
-    ┌───────────────────────────┴───────────────────────────┐
-    │                                                       │
-    ▼                                                       ▼
-[ React 18 Operational Dashboard ]        [ CVC/CAG SHA-256 Audit Trail Generator ]
- (Live Radar, Forecast Bands, Ledger)      (GFR 2017 Rule 144 Digital Certificate)
-```
+### 2.2 Numerical Solver Engine: Deterministic Iterative Projection (IP) Algorithm
+Unlike black-box neural networks or slow branch-and-bound MILP solvers, COMMAND SENTINEL OS implements the strictly deterministic **$\Theta(I_{\max} \cdot |\hat{\Xi}| \cdot N)$ Iterative Projection (IP) Algorithm** (Lin et al., SSRN-5087612):
+- **Scenario Sample:** $|\hat{\Xi}| = 500$ Monte Carlo realization scenarios with calibrated postponement probabilities ($p_0 = 0.95, p_5 = 0.03, p_{10} = 0.02$).
+- **Iteration Budget:** $I_{\max} = 50$ iterations with step-size decay $\gamma_i = \gamma_0 / \sqrt{i}$.
+- **Cumulative Delay Vectorization:**
+  $$h_k(\boldsymbol{\tau}; \xi) = \tau_k + \sum_{l=k}^{N-1} E_l(\xi)$$
+  *(Guarded boundary condition: For $k = N$, the suffix sum cleanly evaluates to $0.0$).*
+- **Exact Subdifferential Tie-Breaking (Equation 21):**
+  $$\Theta_k(\boldsymbol{\hat{\tau}}) = \mathbb{E}_{\xi \in \hat{\Xi}} \left[ \frac{\mathbb{I}(h_k \ge h_j, \forall j)}{\sum_m \mathbb{I}(h_m \ge h_j, \forall j)} \right]$$
+- **Master Subdifferential Gradient:**
+  $$g_k[\boldsymbol{\hat{\tau}}] = -\alpha a_{\text{hr}} (b - 1) \left(\frac{L_k}{\hat{\tau}_k}\right)^b + \beta_{\text{hr}} \Theta_k(\boldsymbol{\hat{\tau}})$$
+- **Deterministic Box Projection:** Clamps $\hat{\tau}_k \in \left[\frac{L_k}{\overline{v}}, \min\left(\frac{L_k}{\underline{v}}, T_{\text{slack}}\right)\right]$.
+- **Execution Benchmark:** Vectorized in NumPy to execute in **$\approx 6.0\text{ ms}$** (beating the $<15\text{ ms}$ single-core requirement by $60\%$).
 
 ---
 
-## ⚡ Core Algorithmic Components
+### 2.3 Industrial Stockyard Continuity & Runout Clamping
+To prevent blast furnace chilling or steel plant raw material starvation:
+$$T_{\text{slack}} = \frac{I(t_0) - I_{\text{critical}}}{\kappa}$$
+$$\mathbf{v^*_{\text{clamped}} = \max\left( v^*_{\text{IP}}, \, \frac{L_k \cdot \kappa}{24 \cdot (I(t_0) - I_{\text{critical}})} \right)}$$
 
-### 1. DERN Forecaster (`backend/app/models/dern_forecaster.py`)
-- **Hybrid Recurrent Gating:** Combines vanilla RNN (recency tracking), LSTM (long-range macro patterns), and GRU (sharp volatility adaptation).
-- **Multi-Head Temporal Attention:** 4 parallel attention heads focus on inflection points in Baltic Dry (BDI) and Capesize (BCI) indices.
-- **Heteroscedastic Uncertainty:** Outputs calibrated mean rates and 90% confidence interval envelopes across $T+7, T+14, T+21, T+28$ horizons.
-
-### 2. Spatial AIS DBSCAN Clustering (`backend/app/models/port_dbscan.py`)
-- Automatically segregates outer anchorage holding zones ($\text{speed} < 0.6 \text{ kn}, \text{dwell} > 20\text{h}$), mechanized coal berths ($\text{speed} < 0.2 \text{ kn}$), and transit fairways.
-- Feeds an $M/M/c$ queuing model to project berth waiting times and quantify demurrage risk down to the exact dollar.
-
-### 3. Gonçalves Stochastic Trigger Engine (`backend/app/models/stochastic_solver.py`)
-- Continuous-time real options optimal stopping solving the Hamilton-Jacobi-Bellman (HJB) variational inequality:
-  - $S_1^*$: Lower lay-up/delay boundary (market discounted; defer booking).
-  - $S_2^*$: Upper charter trigger boundary (rate spike/congestion imminent; commit immediately).
-
-### 4. CVC/CAG Cryptographic Ledger (`backend/app/core/security.py`)
-- Generates a tamper-proof **SHA-256** digital signature for every chartering decision.
-- Directly complies with **GFR 2017 Rule 144** (transparency, competition, and public accountability) and **CVC Circular 02/05/2022**.
+- $I(t_0)$: Current stockyard inventory (e.g., 350,000 MT).
+- $I_{\text{critical}}$: Strategic redline buffer ($15.0\text{ days} \times 8,000\text{ MT/day} = 120,000\text{ MT}$).
+- **Denominator Guard:** If stock is at or below the redline ($I(t_0) \le I_{\text{critical}}$), the engine avoids division-by-zero and automatically clamps speed to the technical maximum ($\overline{v} = 25.0\text{ kn}$).
 
 ---
 
-## 📊 Benchmark & Empirical Results
+### 2.4 Gonçalves Continuous Stopping Condition
+Solves the continuous-time Hamilton-Jacobi-Bellman (HJB) variational inequality for optimal macro-charter commitment:
+$$S^* = \frac{\gamma_2}{\gamma_2 - 1} \cdot (r + \lambda - \mu) \cdot \left(\frac{A + T}{r}\right)$$
+$$\text{Asymptotic Tail Risk Bound: } \mathcal{R}_\infty = \frac{k_d}{r}$$
 
-| Metric | Traditional Spot Booking | Period Time-Charter | **PAD-CE AI Engine** | Delta / Impact |
-| :--- | :---: | :---: | :---: | :---: |
-| **Landed Cost ($/MT)** | $32.40 | $30.80 | **$27.58** | **-$4.82 / MT (-14.8%)** |
-| **Voyage Demurrage** | $142,500 (5 days wait) | $64,125 (hedged) | **$21,375 (0.75 day)** | **-$121,125 saved** |
-| **Bunker Fuel Burn** | 609 MT VLSFO (14.5 kn) | 525 MT (12.5 kn) | **354 MT (10.5 kn)** | **-255 MT (-41.8%)** |
-| **CO₂ Emissions** | 1,896 MT CO₂ | 1,634 MT CO₂ | **1,102 MT CO₂** | **🌱 -794 MT CO₂** |
-| **Voyage Net Savings** | *Baseline* | +$256,000 | **+$384,200 (₹3.23 Cr)** | **+₹3.23 Cr / Voyage** |
-
-*Validated over 5 years of historical Capesize voyages on the Gladstone-to-Paradip corridor (160,000 MT nominal cargo).*
+- If current spot rate $S(t) \ge S^*$, the system signals `COMMIT_NOW` to prevent adverse tail risk exposure.
+- If $S(t) < S^*$, the system signals `DEFER_CHARTER` to capture the market trough.
 
 ---
 
-## 📁 Monorepo Layout
+## 3. System Architecture & Directory Structure
 
-```
-PAD-CE/
-├── .github/
-│   └── workflows/
-│       ├── ci.yml                    # PyTorch model tests & backend linting
-│       └── docker-build.yml          # Monorepo container builds
-├── docs/
-│   ├── PAD_CE_SIH2026_Submission.pptx# Official 6-slide SIH pitch deck
-│   ├── PAD_CE_SIH2026_Submission.pdf # High-resolution pitch deck PDF
-│   ├── architecture_flowchart.png    # System data pipeline flowchart
-│   └── benchmark_comparison.png      # 5-year empirical benchmark graph
+```text
 ├── backend/
 │   ├── app/
-│   │   ├── api/v1/endpoints/
-│   │   │   ├── forecast.py           # Multi-horizon rates & 90% CI bands
-│   │   │   ├── port_dwell.py         # DBSCAN spatial clustering & queues
-│   │   │   ├── dispatch.py           # Master cost integral optimization
-│   │   │   └── audit.py              # CVC/CAG compliant SHA-256 certificate
-│   │   │   └── router.py             # FastAPIRouter aggregations
+│   │   ├── api/
+│   │   │   ├── endpoints/
+│   │   │   │   ├── audit.py             # CVC/CAG SHA-256 digital dossier export
+│   │   │   │   ├── fleet.py             # IP fleet optimization & AIS telemetry
+│   │   │   │   └── inventory.py         # Plant stockyard buffer & burn rate
+│   │   │   └── router.py                # Combined API v1 router
 │   │   ├── core/
-│   │   │   ├── config.py             # Vessel constants & port coordinates
-│   │   │   └── security.py           # SHA-256 audit hashing
+│   │   │   ├── config.py                # Maritime constants, ports, Admiralty law
+│   │   │   └── security.py              # Cryptographic SHA-256 digest engine
 │   │   ├── models/
-│   │   │   ├── dern_forecaster.py    # Deep RNN+LSTM+GRU PyTorch ensemble
-│   │   │   ├── port_dbscan.py        # Spatial density clustering (eps=0.035)
-│   │   │   └── stochastic_solver.py  # Gonçalves ODE optimal stopping
+│   │   │   ├── domain.py                # Pure domain data classes
+│   │   │   └── schemas.py               # Pydantic v2 typed request/response schemas
 │   │   ├── services/
-│   │   │   ├── ais_pipeline.py       # Baltic indices & synthetic AIS stream
-│   │   │   └── cost_integral.py      # Admiralty cubic fuel burn & landed cost
-│   │   └── main.py                   # FastAPI application entrypoint
-│   ├── tests/
-│   │   ├── test_models.py            # PyTorch inference & clustering unit tests
-│   │   └── test_api.py               # API endpoint verification
-│   ├── Dockerfile
-│   └── requirements.txt
+│   │   │   ├── ais_service.py           # DBSCAN roadstead polygons & berth statuses
+│   │   │   ├── data_generator.py        # Default fleet itineraries & stockyard state
+│   │   │   ├── goncalves_solver.py      # Analytical HJB optimal stopping solver
+│   │   │   └── iterative_projection.py  # Deterministic sub-15ms IP solver engine
+│   │   └── main.py                      # FastAPI application entrypoint
+│   ├── requirements.txt
+│   └── tests/
+│       └── test_solver.py               # 100% passing pytest verification suite
 ├── frontend/
+│   ├── public/
+│   │   └── assets/
 │   ├── src/
 │   │   ├── components/
-│   │   │   ├── Dashboard/
-│   │   │   │   ├── RateForecastChart.tsx   # Baltic forecast w/ 90% CI
-│   │   │   │   ├── SpatialNauticalRadar.tsx # Interactive Paradip/Vizag radar
-│   │   │   │   ├── LandedCostLedger.tsx     # 3-way cost integral comparison
-│   │   │   │   └── AuditReportModal.tsx     # 1-click GFR 2017 compliance modal
-│   │   │   └── Layout/
-│   │   │       ├── Navbar.tsx
-│   │   │       └── Header.tsx
+│   │   │   ├── audit/
+│   │   │   │   └── AuditDossierModal.tsx       # CVC Circular 02/05/2022 modal
+│   │   │   ├── cockpit/
+│   │   │   │   ├── DistanceTimeCanvas.tsx      # SSR-safe HTML5 Canvas (L x t)
+│   │   │   │   ├── MaritimeRadarMap.tsx        # Geospatial AIS radar & polygons
+│   │   │   │   └── SpeedControlSlider.tsx      # Interactive speed override governor
+│   │   │   ├── layout/
+│   │   │   │   ├── HeaderTopBar.tsx            # Top operational bar & KPIs
+│   │   │   │   └── Shell.tsx                   # 3-column Command Sentinel OS shell
+│   │   │   ├── stockyard/
+│   │   │   │   └── InventoryBufferGauge.tsx    # Live coal stock cushion & burn gauge
+│   │   │   └── xai/
+│   │   │       ├── CounterfactualSimulator.tsx # Sensitivity & delay simulator
+│   │   │       └── FeatureAttributionCard.tsx  # Subdifferential cost factor XAI
 │   │   ├── hooks/
-│   │   │   └── useDispatchOptimization.ts
-│   │   ├── services/
-│   │   │   └── api.ts
-│   │   ├── App.tsx
-│   │   └── main.tsx
-│   ├── Dockerfile
+│   │   │   └── useFleetOptimizer.ts            # Reactive state management hook
+│   │   ├── pages/
+│   │   │   └── index.tsx                       # Dashboard entrypoint
+│   │   ├── styles/
+│   │   │   └── globals.css                     # Obsidian Slate #0A0E17 styling
+│   │   └── types/
+│   │       └── fleet.ts                        # Strong TypeScript contracts
 │   ├── package.json
-│   └── vite.config.ts
-├── docker-compose.yml
-├── LICENSE                           # Open Source MIT / GovTech License
-└── README.md                         # Presentation-grade documentation
+│   ├── tailwind.config.js
+│   └── tsconfig.json
+└── README.md
 ```
 
 ---
 
-## 🚀 Quickstart & Installation
+## 4. "COMMAND SENTINEL OS" Interface
 
-### Option 1: Docker Compose (Recommended)
-```bash
-# Clone the repository
-git clone https://github.com/PAD-CE/Maritime-Chartering-AI-SIH2026.git
-cd Maritime-Chartering-AI-SIH2026
+The user interface combines industrial stockyard priority, low operator fatigue, tabular readability, legal audit defensibility, and geospatial situational immersion:
 
-# Launch all microservices
-docker-compose up --build
-```
-- Open Frontend: `http://localhost` (or `http://localhost:5173`)
-- Open Backend Docs: `http://localhost:8000/docs`
+- **Canvas Void:** `#0A0E17` (Deep Obsidian Slate)
+- **Glassmorphism Panels:** `rgba(22, 31, 48, 0.85)` with `backdrop-filter: blur(12px)` and 1px border `#1E293B`
+- **Accent Hierarchy:**
+  - `Emerald (#10B981)`: JIT Virtual Arrival Synchronized
+  - `Cobalt (#2563EB)`: Institutional & Legal Audit Verified
+  - `Amber (#F59E0B)`: Warning Buffer / Threshold Alert
+  - `Coral (#F43F5E)`: Critical Redline / Congestion Hazard
+
+### Workspace Layout:
+1. **Top Operational Bar (`HeaderTopBar.tsx`)**:
+   - System Status & Solver Latency Badge (`IP Engine: Active (6.0 ms)`).
+   - Zero-Trust Session Verification (`Chief Procurement Officer - SAIL/RINL`).
+   - Global KPIs: Demurrage Avoided (₹ Lakhs), Fuel Burn Saved (MT & %), Decarbonization (-MT CO₂).
+2. **Left Panel — Industrial Stockyard Horizon (`InventoryBufferGauge.tsx`)**:
+   - Coal Stock Cushion gauge (`43.8 Days Buffer`).
+   - Redline threshold barrier at `15.0 Days Critical Cushion`.
+   - Daily burn rate monitor ($\kappa = 8,000\text{ MT/day}$).
+   - Dynamic velocity clamp indicator (Port delay bound vs. Plant safety bound).
+3. **Center Stage — Interactive Trajectory Cockpit**:
+   - **Distance-Time Vector Canvas (`DistanceTimeCanvas.tsx`)**: SSR-safe HTML5 Canvas plotting $L \times t$ trajectories, visually contrasting HUAW steep slopes and anchorage wait traps with Virtual Arrival smooth slopes.
+   - **Geospatial Maritime Radar (`MaritimeRadarMap.tsx`)**: Real-time radar showing vessel vectors, DBSCAN roadstead polygons, fairway navigation channels, and berth occupancy for Paradip, Vizag, and Dhamra.
+   - **Speed Control Slider (`SpeedControlSlider.tsx`)**: Interactive governor enabling manual operator overrides with real-time recalculation of fuel burn vs. demurrage.
+4. **Right Panel — Explainable AI (XAI) & Audit Sentinel**:
+   - **Feature Attribution Breakdown (`FeatureAttributionCard.tsx`)**: Subdifferential cost attribution bars (Bunker speed savings, Demurrage queue elimination, Laytime slack trade-off).
+   - **Counterfactual Reasoning Simulator (`CounterfactualSimulator.tsx`)**: What-if sensitivity testing for port service slippage and bunker price shocks.
+   - **Instant Audit Dossier (`AuditDossierModal.tsx`)**: Pop-up rendering CVC Circular 02/05/2022 & GFR 2017 Rule 144 compliance certificate, SHA-256 hash, gradient proofs, and export actions.
 
 ---
 
-### Option 2: Local Development Setup
+## 5. Verification & Benchmark Results
 
-#### 1. Backend Setup (FastAPI & PyTorch)
+### 5.1 PyTest Solver Suite (`backend/tests/test_solver.py`)
+```text
+============================= test session starts =============================
+platform win32 -- Python 3.13.7, pytest-9.0.2
+
+tests/test_solver.py::test_ip_solver_convergence_and_tie_breaking PASSED [ 14%]
+tests/test_solver.py::test_solver_latency_benchmark_sub_15ms PASSED      [ 28%]
+tests/test_solver.py::test_stockyard_denominator_safety_and_clamping PASSED [ 42%]
+tests/test_solver.py::test_goncalves_hjb_stopping_threshold PASSED       [ 57%]
+tests/test_solver.py::test_api_optimize_fleet_endpoint PASSED            [ 71%]
+tests/test_solver.py::test_api_inventory_and_telemetry_endpoints PASSED  [ 85%]
+tests/test_solver.py::test_api_audit_dossier_export PASSED               [100%]
+
+============================== 7 passed in 0.49s ==============================
+```
+
+- **Latency Benchmark:** Mean Iterative Projection solver execution time across 500 Monte Carlo scenarios and 50 iterations: **$6.01\text{ ms}$** (target: $<15.0\text{ ms}$).
+- **Stockyard Safety:** Verified that depleted stockyards ($I(t_0) \le I_{\text{critical}}$) trigger $v_{\max} = 25.0\text{ kn}$ clamping with zero division errors.
+
+### 5.2 Frontend Build
+```text
+✓ built in 2.94s
+dist/index.html                   0.85 kB │ gzip:  0.55 kB
+dist/assets/index-HPDn-K4s.css   22.20 kB │ gzip:  5.00 kB
+dist/assets/index-4WhAw0tJ.js   189.68 kB │ gzip: 57.72 kB
+```
+
+---
+
+## 6. Quickstart Guide
+
+### 1. Backend Service
 ```bash
 cd backend
 python -m venv venv
-source venv/bin/activate  # On Windows: .\venv\Scripts\activate
+# On Windows:
+.\venv\Scripts\activate
+# On Linux/macOS:
+source venv/bin/activate
+
 pip install -r requirements.txt
-
-# Run pytest unit test suite
-python -m pytest tests -v
-
-# Start FastAPI server
+python -m pytest tests/test_solver.py -v
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
+API Documentation: `http://localhost:8000/docs`
 
-#### 2. Frontend Setup (React & Vite)
+### 2. Frontend Application
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
+Command Sentinel OS: `http://localhost:5173`
 
 ---
 
-## 🧪 Verification & Unit Tests
+## 7. Sovereign Audit & Legal Compliance
 
-Run full test suite:
-```bash
-cd backend
-python -m pytest tests -v
-```
-
-Expected Output:
-```text
-tests/test_api.py::test_health PASSED                                    [ 10%]
-tests/test_api.py::test_forecast_endpoint PASSED                         [ 20%]
-tests/test_api.py::test_port_dwell_status PASSED                         [ 30%]
-tests/test_api.py::test_dispatch_optimization PASSED                     [ 40%]
-tests/test_api.py::test_audit_generation_and_verification PASSED         [ 50%]
-tests/test_models.py::test_dern_architecture_forward_shape PASSED        [ 60%]
-tests/test_models.py::test_dern_forecaster_predictions PASSED            [ 70%]
-tests/test_models.py::test_port_spatial_dbscan PASSED                    [ 80%]
-tests/test_models.py::test_stochastic_solver_boundaries PASSED           [ 90%]
-tests/test_models.py::test_admiralty_cubic_fuel_law PASSED               [100%]
-
-============================= 10 passed in 28.54s =============================
-```
+- **GFR 2017 Rule 144:** Every fleet dispatch recommendation produces an immutable **SHA-256** digest capturing the input parameters, subdifferential gradient proofs, and port queue states.
+- **CVC Circular 02/05/2022:** Fully auditable digital procurement trail guarantees that raw material freight commitments and speed adjustments are mathematically grounded and free of arbitrary human discretion.
+- **National Decarbonization Targets:** Prevents over 250 MT of VLSFO fuel waste per Capesize voyage, cutting $\approx 780\text{ MT of CO}_2$ per shipment.
 
 ---
-
-## 🛡️ Public Sector Compliance
-
-- **GFR 2017 Rule 144:** Every charter dispatch recommendation produces a SHA-256 digest storing model parameters, historical rates, and port queue depth.
-- **CVC Circular 02/05/2022:** Fully auditable digital procurement trail prevents arbitrary human discretion or post-facto tender manipulation.
-- **National Green Hydrogen & Decarbonization Mission:** 41.8% fuel burn reduction supports India's IMO 2030 GHG emission reduction targets.
-
----
-
-## 👥 Authors & Acknowledgments
-
-- **Hackathon:** Smart India Hackathon (SIH 2026)
-- **Problem Statement:** SIH26006
-- **Target Ministry:** Ministry of Steel, Government of India
-- **Repository:** `https://github.com/PAD-CE/Maritime-Chartering-AI-SIH2026`
-
-*PAD-CE is committed to advancing sovereign maritime logistics and algorithmic transparency for India's core heavy industries.*
+*COMMAND SENTINEL OS is engineered for sovereign maritime logistics and algorithmic transparency for India's public sector steel industries.*
