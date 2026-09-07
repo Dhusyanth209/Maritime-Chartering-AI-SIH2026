@@ -1,34 +1,29 @@
-﻿/** @type {import('tailwindcss').Config} */
+/** @type {import('tailwindcss').Config} */
 export default {
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
-  darkMode: 'class',
   theme: {
     extend: {
       colors: {
-        navy: {
-          950: '#070d18',
-          900: '#0c1626',
-          850: '#111d33',
-          800: '#172540',
-          700: '#23385e',
-          600: '#345288',
-        },
-        steel: {
-          500: '#64748b',
-          400: '#94a3b8',
-          300: '#cbd5e1',
-          200: '#e2e8f0',
-        },
-        maritime: {
-          teal: '#06b6d4',
-          cyan: '#22d3ee',
-          emerald: '#10b981',
-          amber: '#f59e0b',
-          crimson: '#ef4444'
+        ocean: {
+          50: '#F0F9FF',
+          100: '#E0F2FE',
+          200: '#BAE6FD',
+          300: '#7DD3FC',
+          400: '#38BDF8',
+          500: '#0EA5E9',
+          600: '#0284C7',
+          700: '#0369A1',
+          800: '#075985',
+          900: '#0C4A6E',
+          950: '#082F49',
         }
+      },
+      fontFamily: {
+        mono: ['JetBrains Mono', 'monospace'],
+        sans: ['Inter', 'sans-serif'],
       }
     },
   },

@@ -1,48 +1,48 @@
-﻿@tailwind base;
+@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --canvas-void: #0A0E17;
-  --panel-bg: rgba(22, 31, 48, 0.85);
-  --border-slate: #1E293B;
-  --accent-emerald: #10B981;
-  --accent-cobalt: #2563EB;
-  --accent-amber: #F59E0B;
-  --accent-coral: #F43F5E;
+  --canvas-bg: #F0F9FF;
+  --panel-bg: #FFFFFF;
+  --border-sky: #E0F2FE;
+  --accent-sky: #0284C7;
+  --accent-cobalt: #0C4A6E;
+  --accent-emerald: #059669;
 }
 
 body {
-  background-color: var(--canvas-void);
-  color: #F8FAFC;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background-color: var(--canvas-bg);
+  color: #0F172A;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   overflow-x: hidden;
 }
 
-.panel-sentinel {
-  background: var(--panel-bg);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--border-slate);
-  border-radius: 1rem;
-}
-
 .font-mono-code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
 }
 
-/* Custom Scrollbar for Command Sentinel OS */
+/* Custom Scrollbar for Oceanic Light Theme */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #0A0E17;
+  background: #F0F9FF;
 }
 ::-webkit-scrollbar-thumb {
-  background: #1E293B;
+  background: #BAE6FD;
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #334155;
+  background: #7DD3FC;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-out forwards;
 }
