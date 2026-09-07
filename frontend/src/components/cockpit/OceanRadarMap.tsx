@@ -1,32 +1,28 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { PortInfrastructure, VesselItinerary } from '../../types/fleet';
-import { Compass, Navigation, Radio, Waves, ShieldCheck } from 'lucide-react';
 
 interface OceanRadarMapProps {
   port: PortInfrastructure;
   vessels: VesselItinerary[];
   selectedVesselId: string;
-  onSelectVessel: (vesselId: string) => void;
+  onSelectVessel: (id: string) => void;
+}
+
+interface CursorTooltip {
+  x: number;
+  y: number;
+  vessel: VesselItinerary | null;
+  feature?: string;
 }
 
 export const OceanRadarMap: React.FC<OceanRadarMapProps> = ({
   port,
   vessels,
   selectedVesselId,
-  onSelectVessel
+  onSelectVessel,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [hoveredVessel, setHoveredVessel] = useState<VesselItinerary | null>(null);
-  const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
-
-  // Camera state for smooth geographic transitions between ports
-  const cameraRef = useRef<{ lat: number; lon: number }>({
-    lat: port.outerAnchorageLatLong[0],
-    lon: port.outerAnchorageLatLong[1]
-  });
-
-  const radarAngleRef = useRef<number>(0);
-  const animFrameRef = useRef<number>(0);
+  const [tooltip, setTooltip] = useState<CursorTooltip | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -34,347 +30,237 @@ export const OceanRadarMap: React.FC<OceanRadarMapProps> = ({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    let isMounted = true;
+    let animId: number;
+    let sweepAngle = 0;
 
     const render = () => {
-      if (!isMounted) return;
-
       const dpr = window.devicePixelRatio || 1;
       const rect = canvas.getBoundingClientRect();
-      const width = rect.width || 900;
-      const height = rect.height || 680;
-
-      canvas.width = width * dpr;
-      canvas.height = height * dpr;
-      ctx.resetTransform?.();
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
       ctx.scale(dpr, dpr);
 
-      // Smooth camera interpolation towards active port
-      const targetLat = port.outerAnchorageLatLong[0];
-      const targetLon = port.outerAnchorageLatLong[1];
-      cameraRef.current.lat += (targetLat - cameraRef.current.lat) * 0.08;
-      cameraRef.current.lon += (targetLon - cameraRef.current.lon) * 0.08;
+      const w = rect.width;
+      const h = rect.height;
 
-      // Update radar angle
-      radarAngleRef.current = (radarAngleRef.current + 0.025) % (Math.PI * 2);
-
-      // 1. Oceanic Light Canvas Background
-      const oceanGrad = ctx.createRadialGradient(
-        width / 2, height / 2, 80,
-        width / 2, height / 2, width * 0.7
-      );
-      oceanGrad.addColorStop(0, '#E0F2FE'); // Sky 100
-      oceanGrad.addColorStop(0.5, '#BAE6FD'); // Sky 200
-      oceanGrad.addColorStop(1, '#7DD3FC'); // Sky 300
+      // 1. Oceanic Deep-Foam Gradient Background
+      const oceanGrad = ctx.createRadialGradient(w * 0.5, h * 0.5, 50, w * 0.5, h * 0.5, Math.max(w, h));
+      oceanGrad.addColorStop(0, '#F8FAFC');
+      oceanGrad.addColorStop(0.65, '#E0F2FE');
+      oceanGrad.addColorStop(1, '#BAE6FD');
       ctx.fillStyle = oceanGrad;
-      ctx.fillRect(0, 0, width, height);
+      ctx.fillRect(0, 0, w, h);
 
-      // 2. Bathymetric Depth Contour Waves
-      ctx.strokeStyle = 'rgba(2, 132, 199, 0.15)';
+      // Port Coordinate Translation Anchor
+      const isParadip = port.portId === 'PARADIP';
+      const portX = isParadip ? w * 0.76 : w * 0.68;
+      const portY = isParadip ? h * 0.28 : h * 0.44;
+
+      // 2. Range Rings & Nautical Bathymetry Grids
+      ctx.strokeStyle = 'rgba(2, 132, 199, 0.12)';
       ctx.lineWidth = 1;
-      for (let r = 80; r < width * 0.8; r += 70) {
+      [100, 200, 320, 460].forEach((r) => {
         ctx.beginPath();
-        ctx.arc(width / 2, height / 2, r, 0, Math.PI * 2);
+        ctx.arc(portX, portY, r, 0, Math.PI * 2);
         ctx.stroke();
-      }
-
-      // 3. Coordinate Grid Matrix
-      ctx.strokeStyle = 'rgba(12, 74, 110, 0.08)';
-      ctx.lineWidth = 1;
-      ctx.setLineDash([4, 4]);
-      const gridSize = 60;
-      for (let x = 0; x < width; x += gridSize) {
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, height);
-        ctx.stroke();
-      }
-      for (let y = 0; y < height; y += gridSize) {
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(width, y);
-        ctx.stroke();
-      }
-      ctx.setLineDash([]);
-
-      const centerX = width / 2;
-      const centerY = height / 2;
-
-      // 4. Rotating Nautical Radar Sweep (Oceanic Teal/Cobalt)
-      ctx.save();
-      ctx.translate(centerX, centerY);
-      ctx.rotate(radarAngleRef.current);
-
-      const sweepGrad = ctx.createRadialGradient(0, 0, 10, 0, 0, 320);
-      sweepGrad.addColorStop(0, 'rgba(2, 132, 199, 0.35)');
-      sweepGrad.addColorStop(0.8, 'rgba(14, 165, 233, 0.08)');
-      sweepGrad.addColorStop(1, 'rgba(14, 165, 233, 0)');
-
-      ctx.fillStyle = sweepGrad;
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.arc(0, 0, 320, -0.4, 0);
-      ctx.closePath();
-      ctx.fill();
-
-      // Lead sweep line
-      ctx.strokeStyle = '#0284C7';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.moveTo(0, 0);
-      ctx.lineTo(320, 0);
-      ctx.stroke();
-      ctx.restore();
-
-      // 5. Radar Range Rings & Crosshairs
-      ctx.strokeStyle = 'rgba(2, 132, 199, 0.4)';
-      ctx.lineWidth = 1;
-      [80, 160, 240, 320].forEach((ringRadius, idx) => {
-        ctx.beginPath();
-        ctx.arc(centerX, centerY, ringRadius, 0, Math.PI * 2);
-        ctx.stroke();
-
-        ctx.fillStyle = '#0369A1';
-        ctx.font = '10px JetBrains Mono, monospace';
-        ctx.textAlign = 'left';
-        ctx.fillText(`${(idx + 1) * 5} NM`, centerX + 6, centerY - ringRadius + 12);
       });
 
-      // Crosshairs
-      ctx.strokeStyle = 'rgba(2, 132, 199, 0.3)';
-      ctx.setLineDash([3, 3]);
-      ctx.beginPath();
-      ctx.moveTo(centerX - 320, centerY);
-      ctx.lineTo(centerX + 320, centerY);
-      ctx.moveTo(centerX, centerY - 320);
-      ctx.lineTo(centerX, centerY + 320);
-      ctx.stroke();
-      ctx.setLineDash([]);
-
-      // 6. Geographic Port Terminal Center
+      // 3. Dynamic Coastline & Breakwaters
       ctx.fillStyle = '#FFFFFF';
-      ctx.shadowColor = 'rgba(2, 132, 199, 0.25)';
-      ctx.shadowBlur = 12;
+      ctx.strokeStyle = '#94A3B8';
+      ctx.lineWidth = 1.5;
       ctx.beginPath();
-      ctx.roundRect(centerX - 35, centerY - 20, 70, 40, 10);
+      if (isParadip) {
+        // Paradip Port North/South Breakwater & Mahanadi River Outflow
+        ctx.moveTo(w * 0.58, 0);
+        ctx.bezierCurveTo(w * 0.66, h * 0.18, portX - 40, portY - 10, portX, portY);
+        ctx.lineTo(portX + 80, portY + 20);
+        ctx.bezierCurveTo(portX + 120, portY + 60, w * 0.88, h * 0.6, w, h * 0.72);
+        ctx.lineTo(w, 0);
+      } else {
+        // Krishnapatnam Port Buckingham Canal / Khandaleru River Entry
+        ctx.moveTo(w * 0.50, 0);
+        ctx.bezierCurveTo(w * 0.54, h * 0.25, portX - 30, portY - 30, portX, portY);
+        ctx.bezierCurveTo(portX + 40, portY + 80, w * 0.78, h * 0.75, w * 0.82, h);
+        ctx.lineTo(w, h);
+        ctx.lineTo(w, 0);
+      }
+      ctx.closePath();
       ctx.fill();
-      ctx.shadowBlur = 0;
-
-      ctx.strokeStyle = '#0284C7';
-      ctx.lineWidth = 2;
       ctx.stroke();
 
-      ctx.fillStyle = '#0C4A6E';
-      ctx.font = 'bold 11px Inter, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText(port.portId, centerX, centerY - 2);
-      ctx.font = '9px JetBrains Mono, monospace';
-      ctx.fillStyle = '#0284C7';
-      ctx.fillText(`${port.maxDraftMeters}m Draft`, centerX, centerY + 11);
-
-      // 7. Fairway Pilot Approach Channel
-      ctx.strokeStyle = '#0284C7';
+      // 4. Dredged Navigation Channel & Fairway Corridor
+      ctx.strokeStyle = 'rgba(2, 132, 199, 0.45)';
       ctx.lineWidth = 3;
-      ctx.setLineDash([8, 4]);
+      ctx.setLineDash([8, 6]);
       ctx.beginPath();
-      ctx.moveTo(centerX - 240, centerY);
-      ctx.lineTo(centerX - 40, centerY);
+      ctx.moveTo(portX - 260, portY + 180);
+      ctx.lineTo(portX, portY);
       ctx.stroke();
       ctx.setLineDash([]);
 
-      ctx.fillStyle = '#0369A1';
-      ctx.font = '9px Inter, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('Deep Fairway Pilot Corridor (16.5m)', centerX - 140, centerY - 8);
+      // Fairway Text
+      ctx.fillStyle = '#0284C7';
+      ctx.font = '600 10px JetBrains Mono';
+      ctx.fillText(`APPROACH FAIRWAY (DEPTH: ${port.approachDepthMeters}m)`, portX - 250, portY + 195);
 
-      // 8. Outer Anchorage DBSCAN Polygon (Demurrage Risk Zone)
-      const polyX = centerX + 110;
-      const polyY = centerY - 140;
-      ctx.fillStyle = 'rgba(239, 68, 68, 0.12)';
+      // 5. Outer Anchorage Waiting Zone (DBSCAN Roadstead)
+      const anchorX = portX - 160;
+      const anchorY = portY + 80;
+      ctx.fillStyle = 'rgba(239, 68, 68, 0.08)';
       ctx.strokeStyle = '#EF4444';
       ctx.lineWidth = 1.5;
-      ctx.setLineDash([5, 3]);
       ctx.beginPath();
-      ctx.moveTo(polyX, polyY);
-      ctx.lineTo(polyX + 130, polyY - 20);
-      ctx.lineTo(polyX + 150, polyY + 90);
-      ctx.lineTo(polyX + 20, polyY + 110);
-      ctx.closePath();
+      ctx.ellipse(anchorX, anchorY, 85, 50, Math.PI / 5, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
-      ctx.setLineDash([]);
 
       ctx.fillStyle = '#DC2626';
-      ctx.font = 'bold 9px Inter, sans-serif';
-      ctx.fillText('Outer Anchorage (DBSCAN ε=0.035°)', polyX + 75, polyY - 26);
-      ctx.font = '8px JetBrains Mono, monospace';
-      ctx.fillText(`Avg Delay: ${port.projectedBerthDelayHours}h`, polyX + 75, polyY - 14);
+      ctx.font = 'bold 10px JetBrains Mono';
+      ctx.fillText(`OUTER ANCHORAGE (${port.currentQueueDepth} SHIPS WAITING)`, anchorX - 80, anchorY + 4);
 
-      // Anchored Waiting Ships (Hurry-then-Wait casualties)
-      [
-        { x: polyX + 40, y: polyY + 30 },
-        { x: polyX + 80, y: polyY + 20 },
-        { x: polyX + 110, y: polyY + 50 },
-        { x: polyX + 60, y: polyY + 70 },
-      ].forEach((ship) => {
-        ctx.fillStyle = '#EF4444';
-        ctx.beginPath();
-        ctx.arc(ship.x, ship.y, 4.5, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.strokeStyle = '#FFFFFF';
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-      });
+      // 6. Terminal Berth Node
+      ctx.fillStyle = '#0284C7';
+      ctx.beginPath();
+      ctx.arc(portX, portY, 8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
 
-      // 9. Active Capesize Fleet Vessels on Approach
-      vessels.forEach((v, index) => {
-        // Compute position based on voyage distance & index
-        const angle = Math.PI + 0.35 * (index - 1);
-        const radius = Math.min(280, Math.max(90, (v.distanceNm / 6000) * 260));
-        const vx = centerX + Math.cos(angle) * radius;
-        const vy = centerY + Math.sin(angle) * radius;
+      ctx.fillStyle = '#0F172A';
+      ctx.font = 'bold 12px Inter, sans-serif';
+      ctx.fillText(port.berthName, portX + 16, portY + 4);
 
+      // 7. Sweeping Radar Beam Animation
+      sweepAngle += 0.018;
+      ctx.save();
+      ctx.translate(portX, portY);
+      ctx.rotate(sweepAngle);
+      const sweep = ctx.createRadialGradient(0, 0, 0, 0, 0, 360);
+      sweep.addColorStop(0, 'rgba(14, 165, 233, 0.22)');
+      sweep.addColorStop(1, 'rgba(14, 165, 233, 0.0)');
+      ctx.fillStyle = sweep;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.arc(0, 0, 360, 0, Math.PI / 4);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+
+      // 8. Inbound Vessel Trajectory Vectors & Markers
+      vessels.forEach((v, idx) => {
         const isSelected = v.id === selectedVesselId;
+        const progress = Math.min(0.85, (5600 - v.distanceNm) / 5600 + idx * 0.16);
+        const vx = w * 0.12 + progress * (portX - w * 0.12) + idx * 40;
+        const vy = h * 0.85 - progress * (h * 0.85 - portY) + idx * 30;
 
-        // Active Ring Ping
+        // Vessel Wake Corridor
+        ctx.strokeStyle = isSelected ? '#0284C7' : 'rgba(148, 163, 184, 0.4)';
+        ctx.lineWidth = isSelected ? 3 : 1.5;
+        ctx.beginPath();
+        ctx.moveTo(vx - 80, vy + 50);
+        ctx.lineTo(vx, vy);
+        ctx.stroke();
+
+        // Pulsing Aura for Selected Ship
         if (isSelected) {
-          ctx.strokeStyle = '#059669';
-          ctx.lineWidth = 2;
+          ctx.fillStyle = 'rgba(2, 132, 199, 0.18)';
           ctx.beginPath();
-          ctx.arc(vx, vy, 12, 0, Math.PI * 2);
-          ctx.stroke();
-
-          ctx.strokeStyle = 'rgba(5, 150, 105, 0.4)';
-          ctx.beginPath();
-          ctx.arc(vx, vy, 18, 0, Math.PI * 2);
-          ctx.stroke();
+          ctx.arc(vx, vy, 16, 0, Math.PI * 2);
+          ctx.fill();
         }
 
-        // Vessel Icon Marker
-        ctx.fillStyle = isSelected ? '#059669' : '#0284C7';
+        // Vessel Geometric Node
+        ctx.fillStyle = isSelected ? '#0284C7' : '#FFFFFF';
         ctx.beginPath();
-        ctx.arc(vx, vy, 6, 0, Math.PI * 2);
+        ctx.arc(vx, vy, isSelected ? 8 : 6, 0, Math.PI * 2);
         ctx.fill();
-        ctx.strokeStyle = '#FFFFFF';
+        ctx.strokeStyle = isSelected ? '#FFFFFF' : '#0369A1';
         ctx.lineWidth = 2;
         ctx.stroke();
 
-        // Label Tag
-        ctx.fillStyle = '#FFFFFF';
-        ctx.shadowColor = 'rgba(0,0,0,0.1)';
-        ctx.shadowBlur = 6;
-        ctx.beginPath();
-        ctx.roundRect(vx - 50, vy + 10, 100, 20, 6);
-        ctx.fill();
-        ctx.shadowBlur = 0;
-        ctx.strokeStyle = isSelected ? '#059669' : '#BAE6FD';
-        ctx.lineWidth = 1;
-        ctx.stroke();
-
-        ctx.fillStyle = isSelected ? '#065F46' : '#0C4A6E';
-        ctx.font = 'bold 9px Inter, sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText(v.name, vx, vy + 23);
+        // Label
+        ctx.fillStyle = isSelected ? '#0C4A6E' : '#334155';
+        ctx.font = isSelected ? 'bold 11px JetBrains Mono' : '500 11px Inter, sans-serif';
+        ctx.fillText(`${v.name} (${v.jitSpeedKn} kn)`, vx + 12, vy + 4);
       });
 
-      animFrameRef.current = requestAnimationFrame(render);
+      animId = requestAnimationFrame(render);
     };
 
     render();
-
-    return () => {
-      isMounted = false;
-      cancelAnimationFrame(animFrameRef.current);
-    };
+    return () => cancelAnimationFrame(animId);
   }, [port, vessels, selectedVesselId]);
 
-  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const handleCanvasMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const clickY = e.clientY - rect.top;
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
 
-    const centerX = rect.width / 2;
-    const centerY = rect.height / 2;
+    const w = rect.width;
+    const h = rect.height;
+    const isParadip = port.portId === 'PARADIP';
+    const portX = isParadip ? w * 0.76 : w * 0.68;
+    const portY = isParadip ? h * 0.28 : h * 0.44;
 
-    // Check hit against each vessel
-    vessels.forEach((v, index) => {
-      const angle = Math.PI + 0.35 * (index - 1);
-      const radius = Math.min(280, Math.max(90, (v.distanceNm / 6000) * 260));
-      const vx = centerX + Math.cos(angle) * radius;
-      const vy = centerY + Math.sin(angle) * radius;
+    let match: VesselItinerary | null = null;
+    vessels.forEach((v, idx) => {
+      const progress = Math.min(0.85, (5600 - v.distanceNm) / 5600 + idx * 0.16);
+      const vx = w * 0.12 + progress * (portX - w * 0.12) + idx * 40;
+      const vy = h * 0.85 - progress * (h * 0.85 - portY) + idx * 30;
 
-      const dist = Math.hypot(clickX - vx, clickY - vy);
-      if (dist <= 25) {
-        onSelectVessel(v.id);
+      if (Math.hypot(x - vx, y - vy) < 22) {
+        match = v;
       }
     });
-  };
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const mx = e.clientX - rect.left;
-    const my = e.clientY - rect.top;
-    setMousePos({ x: mx, y: my });
-
-    const centerX = rect.width / 2;
-    const centerY = rect.height / 2;
-
-    let found: VesselItinerary | null = null;
-    vessels.forEach((v, index) => {
-      const angle = Math.PI + 0.35 * (index - 1);
-      const radius = Math.min(280, Math.max(90, (v.distanceNm / 6000) * 260));
-      const vx = centerX + Math.cos(angle) * radius;
-      const vy = centerY + Math.sin(angle) * radius;
-
-      if (Math.hypot(mx - vx, my - vy) <= 25) {
-        found = v;
-      }
-    });
-    setHoveredVessel(found);
+    setTooltip(match ? { x, y, vessel: match } : null);
   };
 
   return (
-    <div className="relative w-full h-full">
+    <div className="relative w-full h-full rounded-2xl overflow-hidden shadow-sm border border-sky-200">
       <canvas
         ref={canvasRef}
-        onClick={handleCanvasClick}
-        onMouseMove={handleMouseMove}
-        onMouseLeave={() => setHoveredVessel(null)}
-        className="w-full h-full block cursor-crosshair"
+        onMouseMove={handleCanvasMove}
+        onMouseLeave={() => setTooltip(null)}
+        onClick={() => {
+          if (tooltip?.vessel) onSelectVessel(tooltip.vessel.id);
+        }}
+        className="w-full h-full cursor-crosshair block"
       />
 
-      {/* Top Right: Real-Time AIS GPS Telemetry HUD */}
-      <div className="absolute top-4 right-4 z-20 bg-white/95 backdrop-blur-md px-4 py-2.5 rounded-xl border border-sky-200 shadow-md text-xs font-mono">
-        <div className="flex items-center gap-2 text-sky-950 font-bold mb-1">
-          <Radio className="w-3.5 h-3.5 text-emerald-600 animate-pulse" />
-          <span>LIVE AIS RADAR TELEMETRY</span>
-        </div>
-        <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-[10px] text-slate-600">
-          <span>Lat: <strong className="text-slate-800">{cameraRef.current.lat.toFixed(3)}°N</strong></span>
-          <span>Lon: <strong className="text-slate-800">{cameraRef.current.lon.toFixed(3)}°E</strong></span>
-          <span>Sea State: <strong className="text-sky-700">Calm (0.8m)</strong></span>
-          <span>Radar Sweep: <strong className="text-emerald-700">360° Continuous</strong></span>
-        </div>
-      </div>
-
-      {/* Hover Vessel Tooltip */}
-      {hoveredVessel && mousePos && (
+      {tooltip?.vessel && (
         <div
-          className="absolute z-30 pointer-events-none bg-sky-950/95 text-white text-[11px] font-mono px-3.5 py-2.5 rounded-xl shadow-xl border border-sky-400/40 space-y-1"
-          style={{ left: mousePos.x + 15, top: mousePos.y - 45 }}
+          className="absolute z-30 pointer-events-none bg-white/95 backdrop-blur-md p-4 rounded-xl shadow-xl border border-sky-200 text-slate-800 transition-all text-xs"
+          style={{
+            left: Math.min(window.innerWidth - 320, tooltip.x + 18),
+            top: Math.min(480, tooltip.y - 30),
+          }}
         >
-          <div className="font-bold text-sky-200">{hoveredVessel.name}</div>
-          <div className="text-[10px] text-slate-300">
-            {hoveredVessel.origin} ➔ {hoveredVessel.destination}
+          <div className="flex items-center gap-2 mb-2 pb-1.5 border-b border-sky-100">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="font-bold text-sm text-sky-950 font-mono">{tooltip.vessel.name}</span>
           </div>
-          <div className="flex gap-3 text-[10px] pt-1 border-t border-sky-800/80">
-            <span>Speed: <strong className="text-emerald-400">{hoveredVessel.jitSpeedKn} kn</strong></span>
-            <span>Cargo: <strong>{(hoveredVessel.cargoMt / 1000).toFixed(0)}k MT</strong></span>
-            <span>Dist: <strong>{hoveredVessel.distanceNm} NM</strong></span>
+          <div className="space-y-1.5 font-mono text-[11px]">
+            <div className="flex justify-between gap-4">
+              <span className="text-slate-500">Virtual Arrival Speed:</span>
+              <span className="font-bold text-emerald-600">{tooltip.vessel.jitSpeedKn} Knots</span>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span className="text-slate-500">Distance to Quayside:</span>
+              <span className="font-bold text-slate-900">{tooltip.vessel.distanceNm.toLocaleString()} NM</span>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span className="text-slate-500">Berth Window ETA:</span>
+              <span className="font-bold text-sky-700">+{tooltip.vessel.etaHours.toFixed(1)} Hours</span>
+            </div>
+            <div className="flex justify-between gap-4 pt-1 border-t border-slate-100">
+              <span className="text-slate-500">Demurrage Saved:</span>
+              <span className="font-bold text-emerald-700">₹{tooltip.vessel.demurrageSavedInrLakhs} Lakhs</span>
+            </div>
           </div>
         </div>
       )}
