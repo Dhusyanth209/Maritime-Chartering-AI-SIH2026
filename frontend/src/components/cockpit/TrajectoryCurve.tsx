@@ -8,6 +8,7 @@ interface TrajectoryCurveProps {
 
 export const TrajectoryCurve: React.FC<TrajectoryCurveProps> = ({ vessel, port }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const [scrub, setScrub] = useState<{ x: number; y: number; time: number; dist: number; speed: number } | null>(null);
 
   useEffect(() => {
@@ -16,6 +17,7 @@ export const TrajectoryCurve: React.FC<TrajectoryCurveProps> = ({ vessel, port }
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    // High-DPI Retina/4K Scaling
     const dpr = window.devicePixelRatio || 1;
     const rect = canvas.getBoundingClientRect();
     canvas.width = rect.width * dpr;
@@ -75,6 +77,11 @@ export const TrajectoryCurve: React.FC<TrajectoryCurveProps> = ({ vessel, port }
     ctx.strokeStyle = 'rgba(239, 68, 68, 0.3)';
     ctx.strokeRect(toX(huawArrival), toY(250), toX(jitArrival) - toX(huawArrival), toY(0) - toY(250));
 
+    // Outer Anchorage Label in delay box
+    ctx.fillStyle = '#DC2626';
+    ctx.font = 'bold 9px JetBrains Mono';
+    ctx.fillText('Outer Anchorage Idle Delay', toX(huawArrival) + 8, toY(120));
+
     // Legacy HUAW Slope
     ctx.strokeStyle = '#EF4444';
     ctx.lineWidth = 2;
@@ -93,15 +100,39 @@ export const TrajectoryCurve: React.FC<TrajectoryCurveProps> = ({ vessel, port }
     ctx.lineTo(toX(jitArrival), toY(0));
     ctx.stroke();
 
-    // Scrubber Marker
+    // Active Crosshair Guide Lines
     if (scrub) {
-      ctx.fillStyle = '#0284C7';
+      ctx.save();
+      ctx.strokeStyle = 'rgba(5, 150, 105, 0.45)';
+      ctx.setLineDash([4, 4]);
+      ctx.lineWidth = 1;
+
+      // Horizontal Crosshair
+      ctx.beginPath();
+      ctx.moveTo(pad.left, scrub.y);
+      ctx.lineTo(w - pad.right, scrub.y);
+      ctx.stroke();
+
+      // Vertical Crosshair
+      ctx.beginPath();
+      ctx.moveTo(scrub.x, pad.top);
+      ctx.lineTo(scrub.x, h - pad.bottom);
+      ctx.stroke();
+      ctx.restore();
+
+      // Glowing Scrubber Marker on Green Slope
+      ctx.save();
+      ctx.fillStyle = '#059669';
+      ctx.shadowColor = 'rgba(5, 150, 105, 0.7)';
+      ctx.shadowBlur = 10;
       ctx.beginPath();
       ctx.arc(scrub.x, scrub.y, 6, 0, Math.PI * 2);
       ctx.fill();
+
       ctx.strokeStyle = '#FFFFFF';
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 2.5;
       ctx.stroke();
+      ctx.restore();
     }
   }, [vessel, port, scrub]);
 
@@ -113,12 +144,16 @@ export const TrajectoryCurve: React.FC<TrajectoryCurveProps> = ({ vessel, port }
     const padLeft = 60;
     const padRight = 35;
     const pw = rect.width - padLeft - padRight;
+    const ph = rect.height - 25 - 35;
 
-    const t = Math.max(0, Math.min(600, ((x - padLeft) / pw) * 600));
-    const d = Math.max(0, vessel.distanceNm - vessel.jitSpeedKn * t);
+    const maxTime = 600;
+    const maxDist = 6000;
 
-    if (t <= vessel.etaHours) {
-      const y = 25 + (1 - d / 6000) * (rect.height - 60);
+    const t = Math.max(0, Math.min(maxTime, ((x - padLeft) / pw) * maxTime));
+
+    if (t <= vessel.etaHours && x >= padLeft && x <= rect.width - padRight) {
+      const d = Math.max(0, vessel.distanceNm - vessel.jitSpeedKn * t);
+      const y = 25 + (1 - d / maxDist) * ph;
       setScrub({ x, y, time: t, dist: d, speed: vessel.jitSpeedKn });
     } else {
       setScrub(null);
@@ -126,27 +161,44 @@ export const TrajectoryCurve: React.FC<TrajectoryCurveProps> = ({ vessel, port }
   };
 
   return (
-    <div className="relative w-full bg-white rounded-2xl p-4 border border-sky-200 shadow-sm mt-4">
+    <div ref={containerRef} className="relative w-full bg-white rounded-2xl p-4 border border-sky-200 shadow-sm">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-mono font-semibold text-slate-800">
-          Space-Time Coordinate Profile (L × t): {vessel.name}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+          <span className="text-xs font-mono font-bold text-slate-800">
+            Space-Time Coordinate Profile (L × t): {vessel.name}
+          </span>
+        </div>
         <span className="text-[11px] font-mono text-slate-400">
-          Hover across coordinates to scrub trajectory values
+          Hover cursor across green line to scrub trajectory
         </span>
       </div>
       <canvas
         ref={canvasRef}
         onMouseMove={handleScrub}
         onMouseLeave={() => setScrub(null)}
-        className="w-full h-[220px] block cursor-crosshair"
+        className="w-full h-[210px] block cursor-crosshair"
       />
       {scrub && (
         <div
-          className="absolute z-20 pointer-events-none bg-sky-950/90 text-white text-[11px] font-mono px-3 py-1.5 rounded-lg shadow-lg border border-sky-300/30"
-          style={{ left: Math.min(600, scrub.x + 12), top: Math.max(20, scrub.y - 30) }}
+          className="absolute z-20 pointer-events-none bg-sky-950/95 backdrop-blur-md text-white text-[11px] font-mono p-2.5 rounded-xl shadow-xl border border-sky-300/30 flex flex-col gap-1 min-w-[220px]"
+          style={{
+            left: Math.min(520, Math.max(20, scrub.x + 14)),
+            top: Math.max(16, scrub.y - 40),
+          }}
         >
-          T: {scrub.time.toFixed(1)}h | Rem: {Math.round(scrub.dist)} NM | v*: {scrub.speed} kn
+          <div className="flex items-center justify-between gap-2 border-b border-sky-800/60 pb-1 text-slate-300">
+            <span>Time Elapsed:</span>
+            <span className="text-white font-bold">{scrub.time.toFixed(1)} hrs</span>
+          </div>
+          <div className="flex items-center justify-between gap-2 border-b border-sky-800/60 pb-1 text-slate-300">
+            <span>Remaining Distance:</span>
+            <span className="text-white font-bold">{Math.round(scrub.dist)} NM</span>
+          </div>
+          <div className="flex items-center justify-between gap-2 text-emerald-300">
+            <span>Calculated Cruising Speed:</span>
+            <span className="text-emerald-400 font-bold">{scrub.speed.toFixed(1)} kn</span>
+          </div>
         </div>
       )}
     </div>

@@ -30,6 +30,11 @@ export interface VesselItinerary {
   lat: number;
   lon: number;
   status: 'OPTIMAL' | 'CLAMPED' | 'HURRY_THEN_WAIT';
+  currentDraftMeters: number;
+  engineLoadPercent: number;
+  laytimeConsumedHours: number;
+  commGatewayStatus: string;
+  imoNumber: string;
 }
 
 export const PORT_REGISTRY: Record<'PARADIP' | 'KRISHNAPATNAM', PortInfrastructure> = {
